@@ -1,3 +1,13 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.bmuschko:gradle-docker-plugin:3.0.5'
+    }
+}
+
 plugins {
     id 'play'
 }
@@ -15,11 +25,31 @@ repositories {
     }
 }
 
-
 def playVersion = '2.5.10'
 def scalaVersion = '2.11'
 
 version = '1.0-SNAPSHOT'
+
+import com.bmuschko.gradle.docker.tasks.image.Dockerfile
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPullImage
+
+apply plugin: 'com.bmuschko.docker-remote-api'
+
+docker {
+    def env = System.env
+    url = "$env.DOCKER_HOST"
+    
+    if(env.containsKey('DOCKER_TLS_VERIFY')) {
+        url = url.replace('tcp', 'https')
+    } else {
+        url = url.replace('tcp', 'http')
+    }
+    
+    if(env.containsKey('DOCKER_CERT_PATH')) {
+        certPath = project.file "$env.DOCKER_CERT_PATH"
+    }
+}
 
 model {
     components {
@@ -33,6 +63,37 @@ model {
                     options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
                 }
             }
+        }
+    }
+    
+    tasks {
+        def baseImage = 'azul/zulu-openjdk'
+        
+        copyTar(Copy) {
+            dependsOn createPlayBinaryTarDist
+            from project.tarTree("${project.buildDir}/distributions/playBinary.tar")
+            into "${project.buildDir}/docker"
+        }
+        
+        pullBaseImage(DockerPullImage) {
+            repository baseImage
+            tag 'latest'
+        }
+        
+        createDockerfile(Dockerfile) {
+            dependsOn copyTar
+            destFile = project.file('build/docker/Dockerfile')
+            from baseImage
+            copyFile 'playBinary', '/opt'
+            runCommand 'chmod u+x /opt/bin/playBinary'
+            exposePort 9000
+            defaultCommand "/opt/bin/playBinary"
+        }
+        
+        buildImage(DockerBuildImage) {
+            dependsOn pullBaseImage, createDockerfile
+            inputDir = project.file('build/docker')
+            tag = "idgis/message-store:${project.version}"
         }
     }
 }
