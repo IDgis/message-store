@@ -15,10 +15,9 @@ repositories {
     }
 }
 
-ext {
-	playVersion = '2.5.10'
-	scalaVersion = '2.11'
-}
+
+def playVersion = '2.5.10'
+def scalaVersion = '2.11'
 
 version = '1.0-SNAPSHOT'
 
