@@ -1,31 +1,41 @@
 package controllers;
 
+import javax.inject.Inject;
 import java.util.UUID;
 
 import play.Logger;
-import play.cache.Cache;
+import play.cache.CacheApi;
 import play.libs.Json;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
+import play.http.HttpErrorHandler;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class MessageStore extends Controller {
-
-	@BodyParser.Of (value = BodyParser.TolerantText.class, maxLength = 32 * 1024)
-	public static Result put () {
-		if (request ().body ().isMaxSizeExceeded ()) {
-			final ObjectNode node = Json.newObject ();
-			node.set ("status", Json.toJson ("failure"));
-			node.set ("message", Json.toJson (String.format ("Message body is too long")));
-			return badRequest (node);
-		}
+	
+	private CacheApi cache;
+	
+	@Inject
+	public MessageStore(CacheApi cache) {
+		this.cache = cache;
+	}
+	
+	public static class Text32Kb extends BodyParser.TolerantText {
 		
+		@Inject
+		public Text32Kb (HttpErrorHandler errorHandler) {
+			super (32 * 1024, errorHandler);
+		}
+	}
+	
+	@BodyParser.Of (Text32Kb.class)
+	public Result put () {
 		final String body = request ().body ().asText();
 		
 		final String key = UUID.randomUUID ().toString ();
-		Cache.set (key, new Message (request ().getHeader ("Content-Type"), body), 30);
+		cache.set (key, new Message (request ().getHeader ("Content-Type"), body), 30);
 		
 		Logger.debug (String.format ("Storing %d bytes with key %s", body == null ? 0 : body.length (), key));
 		
@@ -36,8 +46,8 @@ public class MessageStore extends Controller {
 		return ok (node);
 	}
 	
-	public static Result get (final String messageKey) {
-		final Object value = Cache.get (messageKey);
+	public Result get (final String messageKey) {
+		final Object value = cache.get (messageKey);
 		if (value == null || !(value instanceof Message)) {
 			final ObjectNode node = Json.newObject ();
 			node.set ("status", Json.toJson ("failure"));

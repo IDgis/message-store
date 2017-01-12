@@ -16,8 +16,8 @@ repositories {
 }
 
 ext {
-	playVersion = '2.2.1'
-	scalaVersion = '2.10'
+	playVersion = '2.5.10'
+	scalaVersion = '2.11'
 }
 
 version = '1.0-SNAPSHOT'
@@ -26,10 +26,18 @@ model {
     components {
         play {
             platform play: playVersion, scala: scalaVersion
+            
+            injectedRoutesGenerator = true
+            
+            binaries.all {
+                tasks.withType(PlatformScalaCompile) {
+                    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+                }
+            }
         }
     }
 }
 
 dependencies {
-	play "com.typesafe.play:play-cache_${scalaVersion}:${playVersion}"
+    play "com.typesafe.play:play-cache_${scalaVersion}:${playVersion}"
 }
