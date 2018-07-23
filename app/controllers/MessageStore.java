@@ -22,15 +22,15 @@ public class MessageStore extends Controller {
 		this.cache = cache;
 	}
 	
-	public static class Text32Kb extends BodyParser.TolerantText {
+	public static class Text500Kb extends BodyParser.TolerantText {
 		
 		@Inject
-		public Text32Kb (HttpErrorHandler errorHandler) {
-			super (32 * 1024, errorHandler);
+		public Text500Kb (HttpErrorHandler errorHandler) {
+			super (500 * 1024, errorHandler);
 		}
 	}
 	
-	@BodyParser.Of (Text32Kb.class)
+	@BodyParser.Of (Text500Kb.class)
 	public Result put () {
 		final String body = request ().body ().asText();
 		
